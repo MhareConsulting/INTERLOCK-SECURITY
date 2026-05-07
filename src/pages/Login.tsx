@@ -1,0 +1,112 @@
+import { useState } from 'react';
+import { supabase, isConfigured } from '../lib/supabase';
+
+interface Props {
+  onLogin: () => void;
+}
+
+export function Login({ onLogin }: Props) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!isConfigured) {
+      // Demo mode — bypass auth
+      onLogin();
+      return;
+    }
+
+    setLoading(true);
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+
+    if (authError) {
+      setError(authError.message);
+    } else {
+      onLogin();
+    }
+  };
+
+  return (
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo">
+          <div className="logo-box">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l5 2.18V11c0 3.5-2.33 6.79-5 7.93-2.67-1.14-5-4.43-5-7.93V7.18L12 5z" />
+            </svg>
+          </div>
+          <span className="logo-name">INTER<span>LOCK</span> SECURITY</span>
+        </div>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ fontFamily: 'Rajdhani,sans-serif', fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
+            Sign in
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+            {isConfigured ? 'Enter your credentials to continue' : 'Running in demo mode — click Sign in to continue'}
+          </div>
+        </div>
+
+        {!isConfigured && (
+          <div style={{
+            background: 'var(--info-bg)', color: 'var(--info-tx)',
+            fontSize: 11, padding: '8px 12px', borderRadius: 'var(--r)',
+            marginBottom: '1rem', lineHeight: 1.5,
+          }}>
+            Demo mode: Supabase not connected. All data is local and resets on refresh.
+            Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to enable persistence.
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div className="fg">
+            <label className="fl">Email</label>
+            <input
+              className="fi"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="admin@interlocksa.co.za"
+              required={isConfigured}
+              autoComplete="email"
+            />
+          </div>
+          <div className="fg">
+            <label className="fl">Password</label>
+            <input
+              className="fi"
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required={isConfigured}
+              autoComplete="current-password"
+            />
+          </div>
+          {error && (
+            <div style={{
+              background: 'var(--danger-bg)', color: 'var(--danger-tx)',
+              fontSize: 12, padding: '8px 12px', borderRadius: 'var(--r)', marginBottom: '.875rem',
+            }}>
+              {error}
+            </div>
+          )}
+          <button
+            className="btn btn-primary"
+            type="submit"
+            disabled={loading}
+            style={{ width: '100%', marginTop: '.25rem' }}
+          >
+            {loading ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
