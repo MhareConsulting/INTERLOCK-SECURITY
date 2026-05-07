@@ -5,6 +5,7 @@ interface Props {
   technicians: Technician[];
   onClose: () => void;
   onSubmit: (job: Job) => void;
+  onUpdateGps: (techName: string, lat: number, lng: number) => void;
   toast: (msg: string) => void;
   jobCount: number;
 }
@@ -34,7 +35,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
   return parts.length ? parts.join(', ') : (data.display_name ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
 }
 
-export function AddJobModal({ technicians, onClose, onSubmit, toast, jobCount }: Props) {
+export function AddJobModal({ technicians, onClose, onSubmit, onUpdateGps, toast, jobCount }: Props) {
   const titleRef = useRef<HTMLInputElement>(null);
   const clientRef = useRef<HTMLInputElement>(null);
   const typeRef = useRef<HTMLSelectElement>(null);
@@ -118,6 +119,13 @@ export function AddJobModal({ technicians, onClose, onSubmit, toast, jobCount }:
         : [],
     };
     onSubmit(job);
+
+    // Update the assigned technician's live GPS pin with the captured location
+    if (locCoords) {
+      const assignedTech = techRef.current?.value ?? (technicians[0]?.name ?? '');
+      onUpdateGps(assignedTech, locCoords.lat, locCoords.lng);
+    }
+
     onClose();
     toast('Job created: ' + id);
   };

@@ -56,12 +56,29 @@ export default function App() {
   }, []);
 
   const handleRefreshGPS = () => {
-    technicians.forEach(t => {
-      const lat = t.lat + (Math.random() * 0.008 - 0.004);
-      const lng = t.lng + (Math.random() * 0.008 - 0.004);
-      updateGps(t.name, lat, lng);
-    });
-    toast('GPS locations refreshed');
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          // Update the first active technician with the real device location.
+          // In production each technician would be logged in on their own device.
+          const activeTech = technicians.find(t => t.status !== 'offline') ?? technicians[0];
+          if (activeTech) {
+            updateGps(activeTech.name, pos.coords.latitude, pos.coords.longitude);
+            toast(`${activeTech.name.split(' ')[0]}'s location updated`);
+          }
+        },
+        () => {
+          // Fallback: nudge all positions slightly if permission denied
+          technicians.forEach(t => {
+            updateGps(t.name, t.lat + (Math.random() * 0.004 - 0.002), t.lng + (Math.random() * 0.004 - 0.002));
+          });
+          toast('GPS locations refreshed (simulated)');
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+      );
+    } else {
+      toast('Geolocation not supported');
+    }
   };
 
   const handleSignOut = async () => {
@@ -202,6 +219,7 @@ export default function App() {
           jobCount={jobs.length}
           onClose={() => setShowAddJob(false)}
           onSubmit={addJob}
+          onUpdateGps={updateGps}
           toast={toast}
         />
       )}
