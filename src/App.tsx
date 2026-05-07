@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { supabase, isConfigured } from './lib/supabase';
 import { useJobs } from './hooks/useJobs';
 import { useTechnicians } from './hooks/useTechnicians';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
 
 import { Toast, useToast } from './components/Toast';
 import { JobModal } from './components/JobModal';
 import { AddJobModal } from './components/AddJobModal';
 import { AddTechModal } from './components/AddTechModal';
+import { OfflineBanner } from './components/OfflineBanner';
 
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
@@ -39,6 +41,7 @@ export default function App() {
   const toast = useToast();
   const { jobs, addJob, updateJob } = useJobs();
   const { technicians, addTechnician, updateGps } = useTechnicians();
+  const { isOnline, pendingCount, syncStatus } = useOnlineStatus();
 
   // Check existing Supabase session
   useEffect(() => {
@@ -85,9 +88,10 @@ export default function App() {
     <div className="app">
       {!isConfigured && (
         <div className="demo-banner">
-          Demo mode — data resets on refresh. Connect Supabase to enable persistence.
+          Demo mode — data is stored locally in your browser. Connect Supabase to enable cloud sync.
         </div>
       )}
+      <OfflineBanner isOnline={isOnline} pendingCount={pendingCount} syncStatus={syncStatus} />
 
       <header className="header">
         <a className="logo" href="#" onClick={e => { e.preventDefault(); setPanel('dashboard'); }}>
@@ -99,6 +103,19 @@ export default function App() {
           <span className="logo-name">INTER<span>LOCK</span> SECURITY</span>
         </a>
         <div className="hdr-r">
+          {/* Offline / pending-sync indicator */}
+          {!isOnline && (
+            <span title="Offline — changes saved locally" style={{
+              fontSize: 11, color: '#fbbf24',
+              background: '#1c1407',
+              border: '0.5px solid #92400e',
+              padding: '3px 9px', borderRadius: 20,
+              display: 'flex', alignItems: 'center', gap: 5,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
+              Offline{pendingCount > 0 ? ` · ${pendingCount} pending` : ''}
+            </span>
+          )}
           <span className="dbadge">{dateStr}</span>
           <div
             className="av"

@@ -428,6 +428,9 @@ body {
   border-bottom: 0.5px solid var(--bdr);
 }
 
+/* ─── Spinner ─── */
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ─── Utility ─── */
 .text-muted { color: var(--muted); }
 .text-success { color: var(--success-tx); }
