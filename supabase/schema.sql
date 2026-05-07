@@ -9,7 +9,7 @@ create extension if not exists "uuid-ossp";
 -- ─── TECHNICIANS ─────────────────────────────────────────────
 create table if not exists technicians (
   id            uuid primary key default uuid_generate_v4(),
-  name          text not null,
+  name          text not null unique,
   phone         text,
   specialisation text not null default 'General Security',
   status        text not null default 'active' check (status in ('active','enroute','offline')),
