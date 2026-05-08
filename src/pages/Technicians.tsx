@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import type { Job, Technician } from '../types';
 import { initials } from '../components/StatusBadge';
+import { EditTechModal } from '../components/EditTechModal';
 
 const TC = [
   { bg: '#EDE9FE', tx: '#5B21B6' },
@@ -14,9 +16,13 @@ interface Props {
   technicians: Technician[];
   jobs: Job[];
   onAddTech: () => void;
+  onUpdateTech: (updated: Technician) => void;
+  toast: (msg: string) => void;
 }
 
-export function Technicians({ technicians, jobs, onAddTech }: Props) {
+export function Technicians({ technicians, jobs, onAddTech, onUpdateTech, toast }: Props) {
+  const [editing, setEditing] = useState<Technician | null>(null);
+
   return (
     <div>
       <div className="sec-hdr">
@@ -62,6 +68,13 @@ export function Technicians({ technicians, jobs, onAddTech }: Props) {
                   <div className="tsl">Done</div>
                 </div>
               </div>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setEditing(t)}
+                style={{ width: '100%', marginTop: 10, fontSize: 11 }}
+              >
+                Edit
+              </button>
             </div>
           );
         })}
@@ -69,6 +82,15 @@ export function Technicians({ technicians, jobs, onAddTech }: Props) {
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>No technicians yet.</p>
         )}
       </div>
+
+      {editing && (
+        <EditTechModal
+          technician={editing}
+          onClose={() => setEditing(null)}
+          onSave={onUpdateTech}
+          toast={toast}
+        />
+      )}
     </div>
   );
 }

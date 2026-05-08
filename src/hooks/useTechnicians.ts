@@ -102,5 +102,31 @@ export function useTechnicians() {
     }
   }, []);
 
-  return { technicians, loading, addTechnician, updateGps, refetch: loadLocal };
+  const updateTechnician = useCallback(async (updated: Technician) => {
+    await db.technicians.where('name').equals(updated.name).modify({
+      phone: updated.phone,
+      role: updated.role,
+      status: updated.status,
+    });
+    setTechnicians(prev => prev.map(t => t.name === updated.name ? { ...t, ...updated } : t));
+
+    if (isConfigured) {
+      if (navigator.onLine) {
+        try {
+          const { error } = await supabase.from('technicians').update({
+            phone: updated.phone,
+            specialisation: updated.role,
+            status: updated.status,
+          }).eq('name', updated.name);
+          if (error) throw error;
+        } catch {
+          await enqueue('ADD_TECHNICIAN', updated);
+        }
+      } else {
+        await enqueue('ADD_TECHNICIAN', updated);
+      }
+    }
+  }, []);
+
+  return { technicians, loading, addTechnician, updateTechnician, updateGps, refetch: loadLocal };
 }
