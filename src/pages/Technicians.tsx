@@ -16,18 +16,22 @@ interface Props {
   technicians: Technician[];
   jobs: Job[];
   onAddTech: () => void;
+  onAddUser: () => void;
   onUpdateTech: (updated: Technician) => void;
   toast: (msg: string) => void;
 }
 
-export function Technicians({ technicians, jobs, onAddTech, onUpdateTech, toast }: Props) {
+export function Technicians({ technicians, jobs, onAddTech, onAddUser, onUpdateTech, toast }: Props) {
   const [editing, setEditing] = useState<Technician | null>(null);
 
   return (
     <div>
       <div className="sec-hdr">
         <div className="sec-ttl">Field Technicians</div>
-        <button className="btn btn-primary btn-sm" onClick={onAddTech}>+ Add Technician</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost btn-sm" onClick={onAddTech}>+ Add Technician</button>
+          <button className="btn btn-primary btn-sm" onClick={onAddUser}>+ Add User</button>
+        </div>
       </div>
       <div className="tgrid">
         {technicians.map((t, i) => {

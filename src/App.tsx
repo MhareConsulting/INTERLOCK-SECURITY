@@ -8,6 +8,7 @@ import { Toast, useToast } from './components/Toast';
 import { JobModal } from './components/JobModal';
 import { AddJobModal } from './components/AddJobModal';
 import { AddTechModal } from './components/AddTechModal';
+import { AddUserModal } from './components/AddUserModal';
 import { OfflineBanner } from './components/OfflineBanner';
 
 import { Login } from './pages/Login';
@@ -39,6 +40,7 @@ export default function App() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showAddJob, setShowAddJob] = useState(false);
   const [showAddTech, setShowAddTech] = useState(false);
+  const [showAddUser, setShowAddUser] = useState(false);
 
   const toast = useToast();
   const { jobs, addJob, updateJob } = useJobs();
@@ -219,6 +221,7 @@ export default function App() {
             technicians={technicians}
             jobs={visibleJobs}
             onAddTech={() => setShowAddTech(true)}
+            onAddUser={() => setShowAddUser(true)}
             onUpdateTech={updateTechnician}
             toast={toast}
           />
@@ -270,6 +273,14 @@ export default function App() {
         <AddTechModal
           onClose={() => setShowAddTech(false)}
           onSubmit={addTechnician}
+          toast={toast}
+        />
+      )}
+
+      {showAddUser && (
+        <AddUserModal
+          onClose={() => setShowAddUser(false)}
+          onCreated={() => { /* technicians list refreshes via syncFromServer */ }}
           toast={toast}
         />
       )}
