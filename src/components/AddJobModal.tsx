@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import type { Job, Technician, JobType, JobPriority } from '../types';
 
+const MAX_ASSIGNEES = 3;
+
 interface Props {
   technicians: Technician[];
   onClose: () => void;
@@ -40,13 +42,28 @@ export function AddJobModal({ technicians, onClose, onSubmit, onUpdateGps, toast
   const clientRef = useRef<HTMLInputElement>(null);
   const typeRef = useRef<HTMLSelectElement>(null);
   const priorityRef = useRef<HTMLSelectElement>(null);
-  const techRef = useRef<HTMLSelectElement>(null);
   const dateRef = useRef<HTMLInputElement>(null);
   const addressRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
 
+  const [selectedTechs, setSelectedTechs] = useState<string[]>(
+    technicians.length ? [technicians[0].name] : []
+  );
   const [locState, setLocState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [locCoords, setLocCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  const toggleTech = (name: string) => {
+    setSelectedTechs(prev => {
+      if (prev.includes(name)) {
+        return prev.filter(n => n !== name);
+      }
+      if (prev.length >= MAX_ASSIGNEES) {
+        toast(`Max ${MAX_ASSIGNEES} technicians per job`);
+        return prev;
+      }
+      return [...prev, name];
+    });
+  };
 
   const handleUseLocation = () => {
     if (!navigator.geolocation) {
@@ -88,6 +105,7 @@ export function AddJobModal({ technicians, onClose, onSubmit, onUpdateGps, toast
     const title = titleRef.current?.value.trim() ?? '';
     const client = clientRef.current?.value.trim() ?? '';
     if (!title || !client) { toast('Fill in title and client'); return; }
+    if (selectedTechs.length === 0) { toast('Assign at least one technician'); return; }
 
     const id = 'JC-' + String(jobCount + 1).padStart(4, '0');
     const job: Job = {
@@ -97,7 +115,7 @@ export function AddJobModal({ technicians, onClose, onSubmit, onUpdateGps, toast
       type: (typeRef.current?.value ?? 'Installation') as JobType,
       priority: (priorityRef.current?.value ?? 'normal') as JobPriority,
       status: 'new',
-      tech: techRef.current?.value ?? (technicians[0]?.name ?? ''),
+      techs: selectedTechs,
       address: addressRef.current?.value ?? '',
       date: dateRef.current?.value ?? new Date().toISOString().split('T')[0],
       desc: descRef.current?.value ?? '',
@@ -120,10 +138,9 @@ export function AddJobModal({ technicians, onClose, onSubmit, onUpdateGps, toast
     };
     onSubmit(job);
 
-    // Update the assigned technician's live GPS pin with the captured location
+    // Update all assigned technicians' GPS pins with the captured location
     if (locCoords) {
-      const assignedTech = techRef.current?.value ?? (technicians[0]?.name ?? '');
-      onUpdateGps(assignedTech, locCoords.lat, locCoords.lng);
+      selectedTechs.forEach(name => onUpdateGps(name, locCoords.lat, locCoords.lng));
     }
 
     onClose();
@@ -167,11 +184,45 @@ export function AddJobModal({ technicians, onClose, onSubmit, onUpdateGps, toast
             </div>
           </div>
           <div className="frow">
-            <div className="fg">
-              <label className="fl">Assign Technician</label>
-              <select ref={techRef} className="fsel">
-                {technicians.map(t => <option key={t.name}>{t.name}</option>)}
-              </select>
+            <div className="fg" style={{ flex: 2 }}>
+              <label className="fl">
+                Assign Team&nbsp;
+                <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 11 }}>
+                  ({selectedTechs.length}/{MAX_ASSIGNEES} selected)
+                </span>
+              </label>
+              <div style={{
+                border: '1px solid var(--border)', borderRadius: 'var(--r)',
+                padding: '6px 8px', maxHeight: 160, overflowY: 'auto',
+                display: 'flex', flexDirection: 'column', gap: 4,
+              }}>
+                {technicians.map(t => {
+                  const checked = selectedTechs.includes(t.name);
+                  const disabled = !checked && selectedTechs.length >= MAX_ASSIGNEES;
+                  return (
+                    <label
+                      key={t.name}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '4px 6px', borderRadius: 4, cursor: disabled ? 'not-allowed' : 'pointer',
+                        background: checked ? 'var(--accent-bg, rgba(99,102,241,.12))' : 'transparent',
+                        opacity: disabled ? 0.45 : 1,
+                        fontSize: 13,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={disabled}
+                        onChange={() => toggleTech(t.name)}
+                        style={{ accentColor: 'var(--accent)', width: 14, height: 14 }}
+                      />
+                      <span style={{ fontWeight: checked ? 600 : 400 }}>{t.name}</span>
+                      <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--muted)' }}>{t.role}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
             <div className="fg">
               <label className="fl">Date</label>

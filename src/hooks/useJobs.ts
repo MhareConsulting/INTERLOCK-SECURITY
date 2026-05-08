@@ -8,7 +8,8 @@ const SEED_JOBS: Job[] = [
   {
     id: 'JC-0001', title: 'Gate Motor Installation', client: 'Thabo Nkosi',
     type: 'Installation', priority: 'high', status: 'in progress',
-    tech: 'Sipho Dlamini', address: '14 Baobab St, Midrand', date: '2026-04-04',
+    techs: ['Joe', 'Brian'],
+    address: '14 Baobab St, Midrand', date: '2026-04-04',
     desc: 'Install CENTURION D5 Evo motor on sliding gate.', notes: '',
     checklist: [
       { t: 'Survey site', done: true }, { t: 'Mount motor bracket', done: true },
@@ -25,7 +26,8 @@ const SEED_JOBS: Job[] = [
   {
     id: 'JC-0002', title: 'CCTV Camera Upgrade', client: 'Sandton Mall',
     type: 'CCTV', priority: 'urgent', status: 'new',
-    tech: 'Lerato Molefe', address: '83 Rivonia Rd, Sandton', date: '2026-04-04',
+    techs: ['Tatenda', 'Tashy'],
+    address: '83 Rivonia Rd, Sandton', date: '2026-04-04',
     desc: 'Replace 12x dome cameras with 4K Hikvision units.', notes: '',
     checklist: [
       { t: 'Remove old cameras', done: false }, { t: 'Run new cabling', done: false },
@@ -41,7 +43,8 @@ const SEED_JOBS: Job[] = [
   {
     id: 'JC-0003', title: 'Alarm Panel Repair', client: 'Mrs van der Merwe',
     type: 'Repair', priority: 'normal', status: 'completed',
-    tech: 'Mpho Sithole', address: '7 Fynbos Cres, Randburg', date: '2026-04-03',
+    techs: ['Brian'],
+    address: '7 Fynbos Cres, Randburg', date: '2026-04-03',
     desc: 'Faulty zone on alarm panel.', notes: 'Replaced tampered zone PCB. All zones clear.',
     checklist: [
       { t: 'Diagnose fault', done: true }, { t: 'Replace board', done: true },
@@ -56,7 +59,8 @@ const SEED_JOBS: Job[] = [
   {
     id: 'JC-0004', title: 'Electric Fence Maintenance', client: 'Sunninghill Estate',
     type: 'Electric Fence', priority: 'normal', status: 'pending',
-    tech: 'Sipho Dlamini', address: 'Sunninghill HOA, JHB', date: '2026-04-05',
+    techs: ['Edward', 'Edmore'],
+    address: 'Sunninghill HOA, JHB', date: '2026-04-05',
     desc: 'Monthly maintenance and energiser check.', notes: '',
     checklist: [
       { t: 'Inspect fence wires', done: false }, { t: 'Test energiser', done: false },
@@ -68,7 +72,8 @@ const SEED_JOBS: Job[] = [
   {
     id: 'JC-0005', title: 'Access Control System', client: 'Growthpoint Offices',
     type: 'Access Control', priority: 'high', status: 'in progress',
-    tech: 'Lerato Molefe', address: '1 Discovery Place, Sandton', date: '2026-04-04',
+    techs: ['Tatenda'],
+    address: '1 Discovery Place, Sandton', date: '2026-04-04',
     desc: 'Install HID card readers at 4 entry points.',
     notes: 'Floors 1-3 complete. Floor 4 reader awaiting delivery.',
     checklist: [
@@ -82,7 +87,8 @@ const SEED_JOBS: Job[] = [
   {
     id: 'JC-0006', title: 'Panic Button Response', client: 'Mariana Costa',
     type: 'Alarm Response', priority: 'urgent', status: 'completed',
-    tech: 'James Pretorius', address: '9 Hawthorne Rd, Rosebank', date: '2026-04-04',
+    techs: ['Joe'],
+    address: '9 Hawthorne Rd, Rosebank', date: '2026-04-04',
     desc: 'Client activated panic. Respond and assess.',
     notes: 'False alarm. Remote accidentally triggered.',
     checklist: [
@@ -108,6 +114,13 @@ async function seedIfEmpty() {
 
 // ─── Map Supabase row → Job ───────────────────────────────────
 function mapRow(r: any): Job {
+  // Support both old single technician_name and new technician_names array
+  let techs: string[] = [];
+  if (Array.isArray(r.technician_names) && r.technician_names.length) {
+    techs = r.technician_names;
+  } else if (r.technician_name) {
+    techs = [r.technician_name];
+  }
   return {
     id: r.id,
     title: r.title,
@@ -115,7 +128,7 @@ function mapRow(r: any): Job {
     type: r.type,
     priority: r.priority,
     status: r.status,
-    tech: r.technician_name,
+    techs,
     address: r.address ?? '',
     date: r.date ?? '',
     desc: r.description ?? '',
@@ -185,7 +198,8 @@ export function useJobs() {
             type: job.type,
             priority: job.priority,
             status: job.status,
-            technician_name: job.tech,
+            technician_name: job.techs[0] ?? null,
+            technician_names: job.techs,
             address: job.address,
             date: job.date,
             description: job.desc,
@@ -221,7 +235,8 @@ export function useJobs() {
           const { error } = await supabase.from('jobs').update({
             status: updated.status,
             notes: updated.notes,
-            technician_name: updated.tech,
+            technician_name: updated.techs[0] ?? null,
+            technician_names: updated.techs,
           }).eq('id', updated.id);
           if (error) throw error;
 

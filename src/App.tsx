@@ -18,21 +18,23 @@ import { GPSTracking } from './pages/GPSTracking';
 import { JobCards } from './pages/JobCards';
 import { Reports } from './pages/Reports';
 
-import type { Job } from './types';
+import type { Job, AppUserRole } from './types';
 
 type Panel = 'dashboard' | 'jobs' | 'technicians' | 'gps' | 'jobcards' | 'reports';
 
-const NAV: { label: string; panel: Panel }[] = [
-  { label: 'Dashboard', panel: 'dashboard' },
-  { label: 'Jobs', panel: 'jobs' },
-  { label: 'Technicians', panel: 'technicians' },
-  { label: 'GPS Tracking', panel: 'gps' },
-  { label: 'Job Cards', panel: 'jobcards' },
-  { label: 'Reports', panel: 'reports' },
+const ALL_NAV: { label: string; panel: Panel; roles: AppUserRole[] }[] = [
+  { label: 'Dashboard',    panel: 'dashboard',    roles: ['admin'] },
+  { label: 'Jobs',         panel: 'jobs',         roles: ['admin', 'technician'] },
+  { label: 'Technicians',  panel: 'technicians',  roles: ['admin'] },
+  { label: 'GPS Tracking', panel: 'gps',          roles: ['admin'] },
+  { label: 'Job Cards',    panel: 'jobcards',     roles: ['admin', 'technician'] },
+  { label: 'Reports',      panel: 'reports',      roles: ['admin'] },
 ];
 
 export default function App() {
   const [authed, setAuthed] = useState(!isConfigured); // demo mode: skip auth
+  const [userRole, setUserRole] = useState<AppUserRole>('admin');
+  const [currentTechName, setCurrentTechName] = useState<string>('');
   const [panel, setPanel] = useState<Panel>('dashboard');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showAddJob, setShowAddJob] = useState(false);
@@ -43,16 +45,35 @@ export default function App() {
   const { technicians, addTechnician, updateGps } = useTechnicians();
   const { isOnline, pendingCount, syncStatus } = useOnlineStatus();
 
+  // Resolve role + tech name from Supabase session metadata
+  const applySession = (session: { user?: { user_metadata?: Record<string, string> } } | null) => {
+    if (!session?.user) return;
+    const meta = session.user.user_metadata ?? {};
+    if (meta.role === 'technician' && meta.technician_name) {
+      setUserRole('technician');
+      setCurrentTechName(meta.technician_name);
+      setPanel('jobs'); // technicians land on Jobs
+    } else {
+      setUserRole('admin');
+      setCurrentTechName('');
+    }
+  };
+
   // Check existing Supabase session
   useEffect(() => {
     if (!isConfigured) return;
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setAuthed(true);
+      if (data.session) {
+        setAuthed(true);
+        applySession(data.session);
+      }
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_ev, session) => {
       setAuthed(Boolean(session));
+      if (session) applySession(session);
     });
     return () => listener.subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleRefreshGPS = () => {
@@ -90,7 +111,16 @@ export default function App() {
     weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
   });
 
-  const userInitials = isConfigured ? 'DS' : 'DS';
+  // Technicians only see jobs they are assigned to
+  const visibleJobs = userRole === 'technician'
+    ? jobs.filter(j => (j.techs ?? []).includes(currentTechName))
+    : jobs;
+
+  const visibleNav = ALL_NAV.filter(n => n.roles.includes(userRole));
+
+  const userInitials = userRole === 'technician'
+    ? currentTechName.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
+    : 'DS';
 
   if (!authed) {
     return (
@@ -133,6 +163,16 @@ export default function App() {
               Offline{pendingCount > 0 ? ` · ${pendingCount} pending` : ''}
             </span>
           )}
+          {userRole === 'technician' && (
+            <span style={{
+              fontSize: 11, color: 'var(--accent-tx, #6366f1)',
+              background: 'var(--accent-bg, rgba(99,102,241,.12))',
+              border: '0.5px solid rgba(99,102,241,.3)',
+              padding: '3px 9px', borderRadius: 20,
+            }}>
+              Technician · {currentTechName}
+            </span>
+          )}
           <span className="dbadge">{dateStr}</span>
           <div
             className="av"
@@ -146,7 +186,7 @@ export default function App() {
       </header>
 
       <nav className="nav">
-        {NAV.map(({ label, panel: p }) => (
+        {visibleNav.map(({ label, panel: p }) => (
           <button
             key={p}
             className={`nb${panel === p ? ' active' : ''}`}
@@ -158,9 +198,9 @@ export default function App() {
       </nav>
 
       <main className="content">
-        {panel === 'dashboard' && (
+        {panel === 'dashboard' && userRole === 'admin' && (
           <Dashboard
-            jobs={jobs}
+            jobs={visibleJobs}
             technicians={technicians}
             onJobClick={setSelectedJob}
             onViewAll={() => setPanel('jobs')}
@@ -168,35 +208,35 @@ export default function App() {
         )}
         {panel === 'jobs' && (
           <Jobs
-            jobs={jobs}
+            jobs={visibleJobs}
             technicians={technicians}
             onJobClick={setSelectedJob}
-            onNewJob={() => setShowAddJob(true)}
+            onNewJob={userRole === 'admin' ? () => setShowAddJob(true) : null}
           />
         )}
-        {panel === 'technicians' && (
+        {panel === 'technicians' && userRole === 'admin' && (
           <Technicians
             technicians={technicians}
-            jobs={jobs}
+            jobs={visibleJobs}
             onAddTech={() => setShowAddTech(true)}
           />
         )}
-        {panel === 'gps' && (
+        {panel === 'gps' && userRole === 'admin' && (
           <GPSTracking
             technicians={technicians}
-            jobs={jobs}
+            jobs={visibleJobs}
             onRefresh={handleRefreshGPS}
           />
         )}
         {panel === 'jobcards' && (
           <JobCards
-            jobs={jobs}
+            jobs={visibleJobs}
             technicians={technicians}
             onJobClick={setSelectedJob}
           />
         )}
-        {panel === 'reports' && (
-          <Reports jobs={jobs} technicians={technicians} />
+        {panel === 'reports' && userRole === 'admin' && (
+          <Reports jobs={visibleJobs} technicians={technicians} />
         )}
       </main>
 
@@ -213,7 +253,7 @@ export default function App() {
         />
       )}
 
-      {showAddJob && (
+      {showAddJob && userRole === 'admin' && (
         <AddJobModal
           technicians={technicians}
           jobCount={jobs.length}

@@ -13,10 +13,11 @@ export function JobCards({ jobs, technicians, onJobClick }: Props) {
   const [search, setSearch] = useState('');
 
   const visible = jobs.filter(j => {
-    if (filter !== 'all' && j.tech !== filter) return false;
+    if (filter !== 'all' && !(j.techs ?? []).includes(filter)) return false;
     if (search) {
       const q = search.toLowerCase();
-      if (![j.title, j.client].some(s => s.toLowerCase().includes(q))) return false;
+      const techMatch = (j.techs ?? []).some(n => n.toLowerCase().includes(q));
+      if (![j.title, j.client].some(s => s.toLowerCase().includes(q)) && !techMatch) return false;
     }
     return true;
   });

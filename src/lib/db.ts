@@ -30,6 +30,20 @@ class InterlockDB extends Dexie {
       technicians:  'name, status',
       syncQueue:    '++id, operation, createdAt',
     });
+
+    // v2: rename job.tech → job.techs (array); add multiEntry index on techs
+    this.version(2).stores({
+      jobs:         'id, status, priority, *techs, date, created_at',
+      technicians:  'name, status',
+      syncQueue:    '++id, operation, createdAt',
+    }).upgrade(tx =>
+      tx.table('jobs').toCollection().modify((job: any) => {
+        if (!job.techs) {
+          job.techs = job.tech ? [job.tech] : [];
+        }
+        delete job.tech;
+      })
+    );
   }
 }
 

@@ -6,7 +6,7 @@ interface Props {
   jobs: Job[];
   technicians: Technician[];
   onJobClick: (job: Job) => void;
-  onNewJob: () => void;
+  onNewJob: (() => void) | null;
 }
 
 type Filter = 'all' | JobStatus | 'urgent';
@@ -31,7 +31,8 @@ export function Jobs({ jobs, technicians, onJobClick, onNewJob }: Props) {
     }
     if (search) {
       const q = search.toLowerCase();
-      if (![j.title, j.client, j.tech].some(s => s.toLowerCase().includes(q))) return false;
+      const techMatch = (j.techs ?? []).some(n => n.toLowerCase().includes(q));
+      if (![j.title, j.client].some(s => s.toLowerCase().includes(q)) && !techMatch) return false;
     }
     return true;
   });
@@ -40,7 +41,9 @@ export function Jobs({ jobs, technicians, onJobClick, onNewJob }: Props) {
     <div>
       <div className="sec-hdr">
         <div className="sec-ttl">Job Management</div>
-        <button className="btn btn-primary btn-sm" onClick={onNewJob}>+ New Job</button>
+        {onNewJob && (
+          <button className="btn btn-primary btn-sm" onClick={onNewJob}>+ New Job</button>
+        )}
       </div>
       <div className="fbar">
         {FILTERS.map(f => (

@@ -11,9 +11,9 @@ interface Props {
 export function JobCard({ job, technicians, onClick }: Props) {
   const done = job.checklist.filter(x => x.done).length;
   const total = job.checklist.length;
-  const col = techColor(job.tech, technicians);
   const hasSig = job.signature && job.signature.length > 30;
   const hasPhotos = job.photos.length > 0;
+  const assignedTechs = job.techs ?? [];
 
   return (
     <div className="jcard" onClick={() => onClick(job)}>
@@ -21,16 +21,23 @@ export function JobCard({ job, technicians, onClick }: Props) {
       <div className="jmain">
         <div className="jttl">{job.title}</div>
         <div className="jmeta">
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{
-              width: 16, height: 16, borderRadius: '50%',
-              background: col.bg, color: col.tx,
-              fontSize: 8, fontWeight: 700,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              {initials(job.tech)}
-            </span>
-            {job.tech}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+            {assignedTechs.map((techName, i) => {
+              const col = techColor(techName, technicians);
+              return (
+                <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <span style={{
+                    width: 16, height: 16, borderRadius: '50%',
+                    background: col.bg, color: col.tx,
+                    fontSize: 8, fontWeight: 700,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {initials(techName)}
+                  </span>
+                  <span style={{ fontSize: 12 }}>{techName}</span>
+                </span>
+              );
+            })}
           </span>
           <span>{job.client}</span>
           <span style={{ color: 'var(--hint)' }}>{job.type}</span>

@@ -1,6 +1,7 @@
 export type JobStatus = 'new' | 'in progress' | 'completed' | 'pending';
 export type JobPriority = 'normal' | 'high' | 'urgent';
 export type TechStatus = 'active' | 'enroute' | 'offline';
+export type AppUserRole = 'admin' | 'technician';
 
 export type JobType =
   | 'Installation'
@@ -39,7 +40,8 @@ export interface Job {
   type: JobType;
   priority: JobPriority;
   status: JobStatus;
-  tech: string;
+  /** All assigned technicians (up to 3). First entry is the primary assignee. */
+  techs: string[];
   address: string;
   date: string;
   desc: string;
@@ -68,7 +70,7 @@ export interface NewJobForm {
   client: string;
   type: JobType;
   priority: JobPriority;
-  tech: string;
+  techs: string[];
   date: string;
   address: string;
   desc: string;

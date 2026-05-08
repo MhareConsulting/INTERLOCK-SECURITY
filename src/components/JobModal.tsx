@@ -87,9 +87,9 @@ export function JobModal({ job: initialJob, technicians, onClose, onSave, toast 
 
   if (!job) return null;
 
-  const techIdx = technicians.findIndex(t => t.name === job.tech);
-  const tech = technicians[techIdx] ?? technicians[0];
-  const col = techColor(job.tech, technicians);
+  const assignedTechs = job.techs ?? [];
+  const primaryTechName = assignedTechs[0] ?? '';
+  const col = techColor(primaryTechName, technicians);
 
   const setStatus = (s: JobStatus) => setJob(prev => prev ? { ...prev, status: s } : prev);
   const toggleCheck = (i: number, done: boolean) => {
@@ -180,7 +180,30 @@ export function JobModal({ job: initialJob, technicians, onClose, onSave, toast 
                   <div className="ilbl">Priority</div>
                   <div className="ival" style={{ color: priColor(job.priority) }}>{job.priority}</div>
                 </div>
-                <div><div className="ilbl">Technician</div><div className="ival">{job.tech}</div></div>
+                <div>
+                  <div className="ilbl">Team</div>
+                  <div className="ival" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {assignedTechs.map((name, i) => {
+                      const c = techColor(name, technicians);
+                      return (
+                        <span key={i} style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          background: c.bg, color: c.tx,
+                          padding: '2px 8px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                        }}>
+                          <span style={{
+                            width: 16, height: 16, borderRadius: '50%',
+                            background: c.tx, color: c.bg,
+                            fontSize: 8, fontWeight: 700,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          }}>{initials(name)}</span>
+                          {name}
+                          {i === 0 && <span style={{ fontSize: 9, opacity: 0.7 }}>lead</span>}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
                 <div><div className="ilbl">Date</div><div className="ival">{job.date}</div></div>
                 <div style={{ gridColumn: '1/-1' }}>
                   <div className="ilbl">Address</div>
@@ -240,27 +263,34 @@ export function JobModal({ job: initialJob, technicians, onClose, onSave, toast 
             <div className="msec">
               <div className="msec-ttl">Technician location</div>
               <div className="gps-info">
-                <div className="gps-coord">Lat <span>{tech?.lat?.toFixed(4) ?? '-'}°</span></div>
-                <div className="gps-coord">Lng <span>{tech?.lng?.toFixed(4) ?? '-'}°</span></div>
-                <div className="gps-coord">
-                  Status{' '}
-                  <span style={{
-                    color: tech?.status === 'active' ? 'var(--success-tx)' :
-                      tech?.status === 'enroute' ? 'var(--warn-tx)' : 'var(--muted)'
-                  }}>
-                    {tech?.status ?? '-'}
-                  </span>
-                </div>
-                <div className="gps-coord">
-                  Tech{' '}
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    background: col.bg, color: col.tx,
-                    padding: '1px 6px', borderRadius: 10, fontSize: 11,
-                  }}>
-                    {initials(job.tech)} {job.tech}
-                  </span>
-                </div>
+                {(() => {
+                  const primaryTech = technicians.find(t => t.name === primaryTechName);
+                  return (
+                    <>
+                      <div className="gps-coord">Lat <span>{primaryTech?.lat?.toFixed(4) ?? '-'}°</span></div>
+                      <div className="gps-coord">Lng <span>{primaryTech?.lng?.toFixed(4) ?? '-'}°</span></div>
+                      <div className="gps-coord">
+                        Status{' '}
+                        <span style={{
+                          color: primaryTech?.status === 'active' ? 'var(--success-tx)' :
+                            primaryTech?.status === 'enroute' ? 'var(--warn-tx)' : 'var(--muted)'
+                        }}>
+                          {primaryTech?.status ?? '-'}
+                        </span>
+                      </div>
+                      <div className="gps-coord">
+                        Team{' '}
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          background: col.bg, color: col.tx,
+                          padding: '1px 6px', borderRadius: 10, fontSize: 11,
+                        }}>
+                          {initials(primaryTechName)} {assignedTechs.join(', ')}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
             <div className="msec">

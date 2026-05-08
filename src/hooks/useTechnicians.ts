@@ -4,10 +4,12 @@ import { db, localSaveTech, enqueue } from '../lib/db';
 import type { Technician } from '../types';
 
 const SEED_TECHS: Technician[] = [
-  { name: 'Sipho Dlamini',   role: 'General Security', status: 'active',  phone: '+27 82 111 2233', lat: -25.7461, lng: 28.1881 },
-  { name: 'Lerato Molefe',   role: 'CCTV Specialist',  status: 'enroute', phone: '+27 71 432 8891', lat: -26.1076, lng: 28.0567 },
-  { name: 'Mpho Sithole',    role: 'Access Control',   status: 'active',  phone: '+27 64 567 4412', lat: -26.0274, lng: 27.8650 },
-  { name: 'James Pretorius', role: 'Alarm Systems',    status: 'offline', phone: '+27 83 998 1155', lat: -26.1929, lng: 28.0305 },
+  { name: 'Joe',     role: 'General Security', status: 'active', phone: '+27 60 100 0001', lat: -26.1500, lng: 28.0100 },
+  { name: 'Brian',   role: 'Gate & Automation',status: 'active', phone: '+27 60 100 0002', lat: -26.0900, lng: 28.0800 },
+  { name: 'Tatenda', role: 'CCTV Specialist',  status: 'active', phone: '+27 60 100 0003', lat: -26.2200, lng: 28.0400 },
+  { name: 'Tashy',   role: 'Alarm Systems',    status: 'active', phone: '+27 60 100 0004', lat: -26.1800, lng: 27.9900 },
+  { name: 'Edward',  role: 'Electric Fencing', status: 'active', phone: '+27 60 100 0005', lat: -26.0600, lng: 28.1200 },
+  { name: 'Edmore',  role: 'Electric Fencing', status: 'active', phone: '+27 60 100 0006', lat: -26.2500, lng: 28.0600 },
 ];
 
 async function seedIfEmpty() {
