@@ -95,7 +95,7 @@ export function GPSTracking({ technicians, jobs, onRefresh }: Props) {
           iconSize: [60, 60],
         });
 
-        const activeJob = jobs.find(j => j.tech === tech.name && (j.status === 'in progress' || j.status === 'new'));
+        const activeJob = jobs.find(j => (j.techs ?? []).includes(tech.name) && (j.status === 'in progress' || j.status === 'new'));
         const statusLabel = tech.status === 'active' ? 'On Site' : tech.status === 'enroute' ? 'En Route' : 'Offline';
 
         const popup = `
@@ -166,7 +166,7 @@ export function GPSTracking({ technicians, jobs, onRefresh }: Props) {
           const col = TC[i % TC.length];
           const statusLabel = t.status === 'active' ? 'On Site' : t.status === 'enroute' ? 'En Route' : 'Offline';
           const statusColor = t.status === 'active' ? 'var(--success-tx)' : t.status === 'enroute' ? 'var(--warn-tx)' : 'var(--muted)';
-          const activeJob = jobs.find(j => j.tech === t.name && (j.status === 'in progress' || j.status === 'new'));
+          const activeJob = jobs.find(j => (j.techs ?? []).includes(t.name) && (j.status === 'in progress' || j.status === 'new'));
 
           return (
             <div key={t.name} style={{

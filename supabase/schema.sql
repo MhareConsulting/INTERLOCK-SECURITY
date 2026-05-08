@@ -215,45 +215,9 @@ insert into technicians (name, phone, specialisation, status, lat, lng) values
   ('Edmore',  '+27 60 100 0006', 'Electric Fencing', 'active', -26.2500, 28.0600)
 on conflict do nothing;
 
-insert into jobs (id, title, client, type, priority, status, technician_name, technician_names, address, date, description, notes) values
-  ('JC-0001','Gate Motor Installation','Thabo Nkosi','Installation','high','in progress','Joe',array['Joe','Brian'],'14 Baobab St, Midrand','2026-04-04','Install CENTURION D5 Evo motor on sliding gate.',''),
-  ('JC-0002','CCTV Camera Upgrade','Sandton Mall','CCTV','urgent','new','Tatenda',array['Tatenda','Tashy'],'83 Rivonia Rd, Sandton','2026-04-04','Replace 12x dome cameras with 4K Hikvision units.',''),
-  ('JC-0003','Alarm Panel Repair','Mrs van der Merwe','Repair','normal','completed','Brian',array['Brian'],'7 Fynbos Cres, Randburg','2026-04-03','Faulty zone on alarm panel.','Replaced tampered zone PCB. All zones clear.'),
-  ('JC-0004','Electric Fence Maintenance','Sunninghill Estate','Electric Fence','normal','pending','Edward',array['Edward','Edmore'],'Sunninghill HOA, JHB','2026-04-05','Monthly maintenance and energiser check.',''),
-  ('JC-0005','Access Control System','Growthpoint Offices','Access Control','high','in progress','Tatenda',array['Tatenda'],'1 Discovery Place, Sandton','2026-04-04','Install HID card readers at 4 entry points.','Floors 1-3 complete. Floor 4 reader awaiting delivery.'),
-  ('JC-0006','Panic Button Response','Mariana Costa','Alarm Response','urgent','completed','Joe',array['Joe'],'9 Hawthorne Rd, Rosebank','2026-04-04','Client activated panic. Respond and assess.','False alarm. Remote accidentally triggered.')
-on conflict do nothing;
+-- No seed jobs — all jobs are created by the admin through the app.
 
--- Seed checklists for JC-0001
-insert into job_checklist (job_id, item_label, checked) values
-  ('JC-0001','Survey site',true),('JC-0001','Mount motor bracket',true),
-  ('JC-0001','Wire motor',false),('JC-0001','Program remotes',false),('JC-0001','Test & handover',false)
-on conflict do nothing;
-
-insert into job_checklist (job_id, item_label, checked) values
-  ('JC-0002','Remove old cameras',false),('JC-0002','Run new cabling',false),
-  ('JC-0002','Install 4K cameras',false),('JC-0002','Configure NVR',false),('JC-0002','Test remote view',false)
-on conflict do nothing;
-
-insert into job_checklist (job_id, item_label, checked) values
-  ('JC-0003','Diagnose fault',true),('JC-0003','Replace board',true),
-  ('JC-0003','Test all zones',true),('JC-0003','Client sign-off',true)
-on conflict do nothing;
-
-insert into job_checklist (job_id, item_label, checked) values
-  ('JC-0004','Inspect fence wires',false),('JC-0004','Test energiser',false),
-  ('JC-0004','Clear vegetation',false),('JC-0004','Check earth stakes',false),('JC-0004','Service report',false)
-on conflict do nothing;
-
-insert into job_checklist (job_id, item_label, checked) values
-  ('JC-0005','Install floor 1',true),('JC-0005','Install floor 2',true),
-  ('JC-0005','Install floor 3',true),('JC-0005','Install floor 4',false),
-  ('JC-0005','Configure access',false),('JC-0005','Train admin',false)
-on conflict do nothing;
-
-insert into job_checklist (job_id, item_label, checked) values
-  ('JC-0006','Respond to site',true),('JC-0006','Assess threat',true),('JC-0006','Report to control',true)
-on conflict do nothing;
+-- No seed checklists — populated when jobs are created through the app.
 
 -- ─── TECHNICIAN USER ACCOUNTS ────────────────────────────────
 -- After running this schema, create the following Supabase Auth users

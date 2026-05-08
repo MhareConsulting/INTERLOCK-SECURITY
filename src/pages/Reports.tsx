@@ -34,7 +34,7 @@ export function Reports({ jobs, technicians }: Props) {
   };
   const maxStatus = Math.max(...statuses.map(s => jobs.filter(j => j.status === s).length), 1);
 
-  const maxTech = Math.max(...technicians.map(t => jobs.filter(j => j.tech === t.name).length), 1);
+  const maxTech = Math.max(...technicians.map(t => jobs.filter(j => (j.techs ?? []).includes(t.name)).length), 1);
 
   const types = [...new Set(jobs.map(j => j.type))];
   const tyColors = ['#E8371B', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6'];
@@ -72,7 +72,7 @@ export function Reports({ jobs, technicians }: Props) {
               <Bar
                 key={t.name}
                 label={t.name.split(' ')[0]}
-                count={jobs.filter(j => j.tech === t.name).length}
+                count={jobs.filter(j => (j.techs ?? []).includes(t.name)).length}
                 max={maxTech}
                 color={TC[i % TC.length].tx}
               />

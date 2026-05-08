@@ -26,7 +26,7 @@ export function Technicians({ technicians, jobs, onAddTech }: Props) {
       <div className="tgrid">
         {technicians.map((t, i) => {
           const col = TC[i % TC.length];
-          const myJobs = jobs.filter(j => j.tech === t.name);
+          const myJobs = jobs.filter(j => (j.techs ?? []).includes(t.name));
           const done = myJobs.filter(j => j.status === 'completed').length;
           const active = myJobs.filter(j => j.status === 'in progress').length;
           const dotCls = t.status === 'active' ? 'da' : t.status === 'enroute' ? 'de' : 'do';

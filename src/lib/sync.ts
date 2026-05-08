@@ -68,7 +68,8 @@ async function syncAddJob(job: Job): Promise<boolean> {
     type: job.type,
     priority: job.priority,
     status: job.status,
-    technician_name: job.tech,
+    technician_name: job.techs?.[0] ?? null,
+    technician_names: job.techs ?? [],
     address: job.address,
     date: job.date,
     description: job.desc,
@@ -100,7 +101,8 @@ async function syncUpdateJob(job: Job): Promise<boolean> {
   const { error } = await supabase.from('jobs').update({
     status: job.status,
     notes: job.notes,
-    technician_name: job.tech,
+    technician_name: job.techs?.[0] ?? null,
+    technician_names: job.techs ?? [],
   }).eq('id', job.id);
   if (error) return false;
 
