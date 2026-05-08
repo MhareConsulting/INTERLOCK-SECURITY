@@ -44,7 +44,7 @@ export default function App() {
 
   const toast = useToast();
   const { jobs, addJob, updateJob } = useJobs();
-  const { technicians, addTechnician, updateTechnician, updateGps } = useTechnicians();
+  const { technicians, addTechnician, updateTechnician, deleteTechnician, updateGps } = useTechnicians();
   const { isOnline, pendingCount, syncStatus } = useOnlineStatus();
 
   // Resolve role + tech name from Supabase session metadata
@@ -223,6 +223,7 @@ export default function App() {
             onAddTech={() => setShowAddTech(true)}
             onAddUser={() => setShowAddUser(true)}
             onUpdateTech={updateTechnician}
+            onDeleteTech={deleteTechnician}
             toast={toast}
           />
         )}

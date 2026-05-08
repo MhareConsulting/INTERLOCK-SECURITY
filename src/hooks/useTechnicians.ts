@@ -128,5 +128,24 @@ export function useTechnicians() {
     }
   }, []);
 
-  return { technicians, loading, addTechnician, updateTechnician, updateGps, refetch: loadLocal };
+  const deleteTechnician = useCallback(async (name: string, userId?: string) => {
+    // Remove locally first
+    await db.technicians.where('name').equals(name).delete();
+    setTechnicians(prev => prev.filter(t => t.name !== name));
+
+    if (isConfigured && navigator.onLine) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token ?? '';
+        await supabase.functions.invoke('delete-user', {
+          body: { userId: userId ?? null, technicianName: name },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {
+        // local already updated
+      }
+    }
+  }, []);
+
+  return { technicians, loading, addTechnician, updateTechnician, deleteTechnician, updateGps, refetch: loadLocal };
 }

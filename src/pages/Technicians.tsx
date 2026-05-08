@@ -18,11 +18,13 @@ interface Props {
   onAddTech: () => void;
   onAddUser: () => void;
   onUpdateTech: (updated: Technician) => void;
+  onDeleteTech: (name: string) => void;
   toast: (msg: string) => void;
 }
 
-export function Technicians({ technicians, jobs, onAddTech, onAddUser, onUpdateTech, toast }: Props) {
+export function Technicians({ technicians, jobs, onAddTech, onAddUser, onUpdateTech, onDeleteTech, toast }: Props) {
   const [editing, setEditing] = useState<Technician | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   return (
     <div>
@@ -72,13 +74,45 @@ export function Technicians({ technicians, jobs, onAddTech, onAddUser, onUpdateT
                   <div className="tsl">Done</div>
                 </div>
               </div>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => setEditing(t)}
-                style={{ width: '100%', marginTop: 10, fontSize: 11 }}
-              >
-                Edit
-              </button>
+              <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setEditing(t)}
+                  style={{ flex: 1, fontSize: 11 }}
+                >
+                  Edit
+                </button>
+                {confirmDelete === t.name ? (
+                  <>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => {
+                        onDeleteTech(t.name);
+                        setConfirmDelete(null);
+                        toast(`${t.name} removed`);
+                      }}
+                      style={{ flex: 1, fontSize: 11, background: 'var(--danger-bg)', color: 'var(--danger-tx)', border: '1px solid var(--danger-tx)' }}
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setConfirmDelete(null)}
+                      style={{ fontSize: 11 }}
+                    >
+                      ✕
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => setConfirmDelete(t.name)}
+                    style={{ flex: 1, fontSize: 11, background: 'var(--danger-bg)', color: 'var(--danger-tx)', border: '1px solid var(--danger-tx)' }}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
