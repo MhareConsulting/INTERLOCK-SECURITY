@@ -13,6 +13,7 @@ const SEED_TECHS: Technician[] = [
 ];
 
 async function seedIfEmpty() {
+  if (isConfigured) return;
   const count = await db.technicians.count();
   if (count === 0) await db.technicians.bulkPut(SEED_TECHS);
 }
@@ -20,6 +21,8 @@ async function seedIfEmpty() {
 export function useTechnicians() {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
+  /** First Supabase technicians fetch finished (or skipped offline / unconfigured). */
+  const [remoteInitDone, setRemoteInitDone] = useState(!isConfigured);
 
   const loadLocal = useCallback(async () => {
     await seedIfEmpty();
@@ -29,7 +32,14 @@ export function useTechnicians() {
   }, []);
 
   const syncFromServer = useCallback(async () => {
-    if (!isConfigured || !navigator.onLine) return;
+    if (!isConfigured) {
+      setRemoteInitDone(true);
+      return;
+    }
+    if (!navigator.onLine) {
+      setRemoteInitDone(true);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('technicians')
@@ -51,6 +61,8 @@ export function useTechnicians() {
       setTechnicians(mapped);
     } catch {
       // stay with local
+    } finally {
+      setRemoteInitDone(true);
     }
   }, []);
 
@@ -147,5 +159,13 @@ export function useTechnicians() {
     }
   }, []);
 
-  return { technicians, loading, addTechnician, updateTechnician, deleteTechnician, updateGps, refetch: loadLocal };
+  return {
+    technicians,
+    loading: loading || (isConfigured && !remoteInitDone),
+    addTechnician,
+    updateTechnician,
+    deleteTechnician,
+    updateGps,
+    refetch: loadLocal,
+  };
 }

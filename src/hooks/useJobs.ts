@@ -6,6 +6,8 @@ import type { Job, ChecklistItem, GpsLogEntry } from '../types';
 /** Remote sync: all jobs (admin), assigned only (technician), or paused until session is known (`null`). */
 export type UseJobsOptions = {
   serverAssignee?: string | null;
+  /** When true, skip server pull until auth metadata (role / technician name) is applied — avoids empty UI and missed sync on login. */
+  syncPaused?: boolean;
 };
 
 // ─── Seed data (demo / first-run) — empty, no placeholder jobs ──
@@ -28,6 +30,9 @@ function mapRow(r: any): Job {
   } else if (r.technician_name) {
     techs = [r.technician_name];
   }
+  const js = r.job_signatures?.[0];
+  const sigBlob = js?.signature_data_url as string | undefined;
+  const hasSigBlob = Boolean(sigBlob && sigBlob.length > 30);
   return {
     id: r.id,
     title: r.title,
@@ -44,8 +49,9 @@ function mapRow(r: any): Job {
       id: c.id, t: c.item_label, done: c.checked,
     })),
     photos: (r.job_photos ?? []).map((p: any) => p.storage_path),
-    signature: r.job_signatures?.[0]?.signature_data_url ?? null,
-    sigName: r.job_signatures?.[0]?.client_name ?? '',
+    signature: hasSigBlob ? sigBlob! : null,
+    sigName: js?.client_name ?? '',
+    signaturePending: Boolean(js?.id && !hasSigBlob),
     gpsLog: (r.job_gps_log ?? []).map((g: any): GpsLogEntry => ({
       id: g.id, time: g.logged_at, loc: `${g.lat.toFixed(4)}, ${g.lng.toFixed(4)}`,
     })),
@@ -56,6 +62,7 @@ function mapRow(r: any): Job {
 // ─── Hook ─────────────────────────────────────────────────────
 export function useJobs(opts?: UseJobsOptions) {
   const serverAssignee = opts?.serverAssignee;
+  const syncPaused = Boolean(opts?.syncPaused);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   /** True while we are waiting for the first successful remote list (empty local cache, online). */
@@ -67,13 +74,19 @@ export function useJobs(opts?: UseJobsOptions) {
     const local = await db.jobs.orderBy('id').reverse().toArray();
     setJobs(local);
     setLoading(false);
-    const needRemoteBootstrap =
+    const waitingForSession =
+      syncPaused &&
+      isConfigured &&
+      navigator.onLine &&
+      local.length === 0;
+    const waitingForRemoteList =
+      !syncPaused &&
       isConfigured &&
       navigator.onLine &&
       local.length === 0 &&
       serverAssignee !== null;
-    setAwaitingRemote(needRemoteBootstrap);
-  }, [serverAssignee]);
+    setAwaitingRemote(waitingForSession || waitingForRemoteList);
+  }, [serverAssignee, syncPaused]);
 
   // Pull latest from Supabase in background (when online).
   // Omit job_gps_log from the embedded select — it can be huge; hydrate in JobModal when the GPS tab opens.
@@ -82,14 +95,19 @@ export function useJobs(opts?: UseJobsOptions) {
       setAwaitingRemote(false);
       return;
     }
+    if (syncPaused) {
+      return;
+    }
     if (serverAssignee === null) {
       setAwaitingRemote(false);
       return;
     }
     try {
+      // Omit signature_data_url from the embedded select — large base64 blobs
+      // slow Android/WebView; hydrate in JobModal when needed.
       let q = supabase
         .from('jobs')
-        .select('*, job_checklist(*), job_photos(*), job_signatures(*)')
+        .select('*, job_checklist(*), job_photos(*), job_signatures(id, client_name)')
         .order('created_at', { ascending: false });
       if (serverAssignee) {
         q = q.contains('technician_names', [serverAssignee]);
@@ -105,9 +123,21 @@ export function useJobs(opts?: UseJobsOptions) {
       const prevById = new Map(prevRows.filter(Boolean).map(p => [p!.id, p!]));
       const merged = mapped.map(m => {
         const prev = prevById.get(m.id);
-        if (m.gpsLog.length > 0) return m;
-        if (prev?.gpsLog?.length) return { ...m, gpsLog: prev.gpsLog };
-        return m;
+        let out = m;
+        if (out.gpsLog.length === 0 && prev?.gpsLog?.length) {
+          out = { ...out, gpsLog: prev.gpsLog };
+        }
+        const serverSig = out.signature && out.signature.length > 30;
+        const localSig = prev?.signature && prev.signature.length > 30;
+        if (!serverSig && localSig) {
+          out = {
+            ...out,
+            signature: prev!.signature,
+            sigName: prev!.sigName || out.sigName,
+            signaturePending: false,
+          };
+        }
+        return out;
       });
       await db.jobs.bulkPut(merged);
       setJobs(merged);
@@ -115,11 +145,18 @@ export function useJobs(opts?: UseJobsOptions) {
       // network error — stay with local data
     }
     setAwaitingRemote(false);
-  }, [serverAssignee]);
+  }, [serverAssignee, syncPaused]);
 
   const hydrateJobGps = useCallback(async (jobId: string, entries: GpsLogEntry[]) => {
     await db.jobs.update(jobId, { gpsLog: entries });
     setJobs(prev => prev.map(j => (j.id === jobId ? { ...j, gpsLog: entries } : j)));
+  }, []);
+
+  const hydrateJobSignature = useCallback(async (jobId: string, signature: string | null, sigName: string) => {
+    await db.jobs.update(jobId, { signature, sigName, signaturePending: false });
+    setJobs(prev =>
+      prev.map(j => (j.id === jobId ? { ...j, signature, sigName, signaturePending: false } : j)),
+    );
   }, []);
 
   useEffect(() => {
@@ -213,6 +250,7 @@ export function useJobs(opts?: UseJobsOptions) {
     addJob,
     updateJob,
     hydrateJobGps,
+    hydrateJobSignature,
     refetch: loadLocal,
   };
 }

@@ -50,6 +50,11 @@ export interface Job {
   photos: string[];
   signature: string | null;
   sigName: string;
+  /**
+   * True when the server has a job_signatures row but the image blob was not
+   * loaded in the list query (keeps Android sync payloads small).
+   */
+  signaturePending?: boolean;
   gpsLog: GpsLogEntry[];
   created_at?: string;
 }

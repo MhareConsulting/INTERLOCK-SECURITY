@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { supabase, isConfigured } from './lib/supabase';
@@ -36,6 +37,8 @@ const ALL_NAV: { label: string; panel: Panel; roles: AppUserRole[] }[] = [
 
 export default function App() {
   const [authed, setAuthed] = useState(!isConfigured); // demo mode: skip auth
+  /** Supabase: false until user metadata is applied (avoids empty shell / wrong role on login). */
+  const [sessionReady, setSessionReady] = useState(!isConfigured);
   const [userRole, setUserRole] = useState<AppUserRole>('admin');
   const [currentTechName, setCurrentTechName] = useState<string>('');
   const [panel, setPanel] = useState<Panel>('dashboard');
@@ -103,13 +106,22 @@ export default function App() {
       : userRole === 'technician' ? (currentTechName || null)
         : undefined;
 
-  const { jobs, addJob, updateJob, hydrateJobGps, loading: jobsLoading } = useJobs({ serverAssignee });
-  const { technicians, addTechnician, updateTechnician, deleteTechnician, updateGps } = useTechnicians();
+  const syncPaused = Boolean(isConfigured && authed && !sessionReady);
+
+  const { jobs, addJob, updateJob, hydrateJobGps, hydrateJobSignature, loading: jobsLoading } = useJobs({
+    serverAssignee,
+    syncPaused,
+  });
+  const { technicians, addTechnician, updateTechnician, deleteTechnician, updateGps, loading: techniciansLoading } =
+    useTechnicians();
   const { isOnline, pendingCount, syncStatus } = useOnlineStatus();
 
   // Resolve role + tech name from Supabase session metadata
-  const applySession = (session: { user?: { user_metadata?: Record<string, string> } } | null) => {
-    if (!session?.user) return;
+  const applySession = useCallback((session: Session | null) => {
+    if (!session?.user) {
+      setSessionReady(false);
+      return;
+    }
     const meta = session.user.user_metadata ?? {};
     if (meta.role === 'technician' && meta.technician_name) {
       setUserRole('technician');
@@ -119,7 +131,8 @@ export default function App() {
       setUserRole('admin');
       setCurrentTechName('');
     }
-  };
+    setSessionReady(true);
+  }, []);
 
   // Check existing Supabase session
   useEffect(() => {
@@ -133,9 +146,15 @@ export default function App() {
     const { data: listener } = supabase.auth.onAuthStateChange((_ev, session) => {
       setAuthed(Boolean(session));
       if (session) applySession(session);
+      else {
+        setSessionReady(false);
+        setUserRole('admin');
+        setCurrentTechName('');
+        setPanel('dashboard');
+      }
     });
     return () => listener.subscription.unsubscribe();
-  }, []);
+  }, [applySession]);
 
   const handleRefreshGPS = () => {
     if (navigator.geolocation) {
@@ -166,6 +185,10 @@ export default function App() {
   const handleSignOut = async () => {
     if (isConfigured) await supabase.auth.signOut();
     setAuthed(false);
+    setSessionReady(false);
+    setUserRole('admin');
+    setCurrentTechName('');
+    setPanel('dashboard');
   };
 
   const dateStr = new Date().toLocaleDateString('en-ZA', {
@@ -183,10 +206,23 @@ export default function App() {
     ? currentTechName.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
     : 'DS';
 
+  const workspaceLoading =
+    authed &&
+    isConfigured &&
+    (!sessionReady ||
+      (jobsLoading && jobs.length === 0) ||
+      techniciansLoading);
+
   if (!authed) {
     return (
       <>
-        <Login onLogin={() => setAuthed(true)} />
+        <Login
+          onLogin={() => setAuthed(true)}
+          onAuthenticated={(session) => {
+            setAuthed(true);
+            applySession(session);
+          }}
+        />
         <Toast />
       </>
     );
@@ -259,14 +295,18 @@ export default function App() {
       </nav>
 
       <main className="content">
-        {jobsLoading && jobs.length === 0 && (
+        {workspaceLoading && (
           <div style={{
-            padding: '2rem 1rem', textAlign: 'center', color: 'var(--muted)', fontSize: 14,
+            padding: '2.5rem 1rem', textAlign: 'center', color: 'var(--muted)', fontSize: 14,
+            lineHeight: 1.6,
           }}>
-            Loading jobs…
+            <div style={{ fontWeight: 600, color: 'var(--fg, #e5e7eb)', marginBottom: 6 }}>
+              Loading your workspace…
+            </div>
+            <div style={{ fontSize: 12 }}>Fetching jobs and team data from the server.</div>
           </div>
         )}
-        {!(jobsLoading && jobs.length === 0) && panel === 'dashboard' && userRole === 'admin' && (
+        {!workspaceLoading && panel === 'dashboard' && userRole === 'admin' && (
           <Dashboard
             jobs={visibleJobs}
             technicians={technicians}
@@ -274,7 +314,7 @@ export default function App() {
             onViewAll={() => setPanel('jobs')}
           />
         )}
-        {!(jobsLoading && jobs.length === 0) && panel === 'jobs' && (
+        {!workspaceLoading && panel === 'jobs' && (
           <Jobs
             jobs={visibleJobs}
             technicians={technicians}
@@ -282,7 +322,7 @@ export default function App() {
             onNewJob={userRole === 'admin' ? () => setShowAddJob(true) : null}
           />
         )}
-        {!(jobsLoading && jobs.length === 0) && panel === 'technicians' && userRole === 'admin' && (
+        {!workspaceLoading && panel === 'technicians' && userRole === 'admin' && (
           <Technicians
             technicians={technicians}
             jobs={visibleJobs}
@@ -293,21 +333,21 @@ export default function App() {
             toast={toast}
           />
         )}
-        {!(jobsLoading && jobs.length === 0) && panel === 'gps' && userRole === 'admin' && (
+        {!workspaceLoading && panel === 'gps' && userRole === 'admin' && (
           <GPSTracking
             technicians={technicians}
             jobs={visibleJobs}
             onRefresh={handleRefreshGPS}
           />
         )}
-        {!(jobsLoading && jobs.length === 0) && panel === 'jobcards' && (
+        {!workspaceLoading && panel === 'jobcards' && (
           <JobCards
             jobs={visibleJobs}
             technicians={technicians}
             onJobClick={setSelectedJob}
           />
         )}
-        {!(jobsLoading && jobs.length === 0) && panel === 'reports' && userRole === 'admin' && (
+        {!workspaceLoading && panel === 'reports' && userRole === 'admin' && (
           <Reports jobs={visibleJobs} technicians={technicians} />
         )}
       </main>
@@ -322,6 +362,7 @@ export default function App() {
             toast('Job card saved');
           }}
           onGpsHydrated={hydrateJobGps}
+          onSignatureHydrated={hydrateJobSignature}
           toast={toast}
         />
       )}

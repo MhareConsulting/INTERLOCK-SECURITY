@@ -11,7 +11,7 @@ interface Props {
 export function JobCard({ job, technicians, onClick }: Props) {
   const done = job.checklist.filter(x => x.done).length;
   const total = job.checklist.length;
-  const hasSig = job.signature && job.signature.length > 30;
+  const hasSig = Boolean((job.signature && job.signature.length > 30) || job.signaturePending);
   const hasPhotos = job.photos.length > 0;
   const assignedTechs = job.techs ?? [];
 

@@ -10,12 +10,14 @@ interface Props {
   onSave: (job: Job) => void;
   /** Persist GPS log into the shared jobs store after lazy load (does not push to server). */
   onGpsHydrated?: (jobId: string, entries: GpsLogEntry[]) => void;
+  /** Persist signature blob after lazy load (does not push to server). */
+  onSignatureHydrated?: (jobId: string, signature: string | null, sigName: string) => void;
   toast: (msg: string) => void;
 }
 
 type TabName = 'details' | 'gps' | 'photos' | 'signature';
 
-export function JobModal({ job: initialJob, technicians, onClose, onSave, onGpsHydrated, toast }: Props) {
+export function JobModal({ job: initialJob, technicians, onClose, onSave, onGpsHydrated, onSignatureHydrated, toast }: Props) {
   const [job, setJob] = useState<Job | null>(null);
   const [tab, setTab] = useState<TabName>('details');
   const gpsHydratedForJob = useRef<string | null>(null);
@@ -68,6 +70,38 @@ export function JobModal({ job: initialJob, technicians, onClose, onSave, onGpsH
       cancelled = true;
     };
   }, [tab, job?.id, job?.gpsLog.length, onGpsHydrated]);
+
+  // Lazy-load signature image (omitted from bulk jobs query for performance).
+  useEffect(() => {
+    if (!job || !job.signaturePending || !isConfigured || !navigator.onLine) return;
+    if (job.signature && job.signature.length > 30) return;
+
+    let cancelled = false;
+    const jobId = job.id;
+
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('job_signatures')
+          .select('signature_data_url, client_name')
+          .eq('job_id', jobId)
+          .maybeSingle();
+        if (cancelled || error || !data?.signature_data_url) return;
+        const url = data.signature_data_url as string;
+        const name = (data.client_name as string) || job.sigName;
+        setJob(prev =>
+          prev && prev.id === jobId ? { ...prev, signature: url, sigName: name, signaturePending: false } : prev,
+        );
+        onSignatureHydrated?.(jobId, url, name);
+      } catch {
+        /* ignore */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [job?.id, job?.signaturePending, job?.signature, job?.sigName, onSignatureHydrated]);
 
   const initSig = useCallback(() => {
     const canvas = sigRef.current;
@@ -169,7 +203,7 @@ export function JobModal({ job: initialJob, technicians, onClose, onSave, onGpsH
       sigCtx.current.clearRect(0, 0, sigRef.current.width, sigRef.current.height);
     }
     sigHasData.current = false;
-    setJob(prev => prev ? { ...prev, signature: null, sigName: '' } : prev);
+    setJob(prev => prev ? { ...prev, signature: null, sigName: '', signaturePending: false } : prev);
   };
 
   const captureSig = () => {
@@ -177,8 +211,11 @@ export function JobModal({ job: initialJob, technicians, onClose, onSave, onGpsH
     const name = (document.getElementById('sigName') as HTMLInputElement)?.value.trim();
     if (!name) { toast('Please enter client name'); return; }
     const dataUrl = sigRef.current?.toDataURL() ?? '';
-    setJob(prev => prev ? { ...prev, signature: dataUrl, sigName: name } : prev);
-    toast('Signature captured for ' + name);
+    const next = job ? { ...job, signature: dataUrl, sigName: name, signaturePending: false } : null;
+    if (next) {
+      setJob(next);
+      onSave(next);
+    }
   };
 
   const handleSave = () => {
@@ -387,7 +424,7 @@ export function JobModal({ job: initialJob, technicians, onClose, onSave, onGpsH
           <div className={`tabp${tab === 'signature' ? ' active' : ''}`}>
             <div className="msec">
               <div className="msec-ttl">Client sign-off</div>
-              {job.signature && job.signature.length > 30 && (
+              {((job.signature && job.signature.length > 30) || job.signaturePending) && (
                 <div className="sig-done" style={{ marginBottom: 8 }}>
                   <span style={{ fontSize: 14 }}>✓</span> Signed by {job.sigName || 'client'}
                 </div>

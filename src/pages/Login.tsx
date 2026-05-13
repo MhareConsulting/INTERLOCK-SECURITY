@@ -1,11 +1,15 @@
 import { useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { supabase, isConfigured } from '../lib/supabase';
 
 interface Props {
+  /** Demo mode only — opens the app without Supabase. */
   onLogin: () => void;
+  /** Supabase sign-in succeeded — apply session before showing the shell (fixes role/assignee race). */
+  onAuthenticated?: (session: Session) => void;
 }
 
-export function Login({ onLogin }: Props) {
+export function Login({ onLogin, onAuthenticated }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,7 +27,7 @@ export function Login({ onLogin }: Props) {
 
     setLoading(true);
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
       if (authError) {
         const am = authError.message ?? '';
         if (/failed to fetch|networkerror|network request failed|load failed/i.test(am)) {
@@ -33,8 +37,10 @@ export function Login({ onLogin }: Props) {
         } else {
           setError(am);
         }
+      } else if (data.session) {
+        onAuthenticated?.(data.session);
       } else {
-        onLogin();
+        setError('Signed in but no session was returned. Try again.');
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
