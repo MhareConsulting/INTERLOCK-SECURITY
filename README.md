@@ -48,6 +48,32 @@ The app runs in demo mode with seed data. No Supabase needed to explore the UI.
 
 In Supabase dashboard → **Authentication → Users → Invite user**, enter an email address. The user will receive a link to set their password.
 
+## Installing the Android APK (team / sideload)
+
+The same APK can behave differently per phone because of **manufacturer settings** and **which app opened the download** (Chrome, WhatsApp, Gmail, Google Drive, Outlook, etc.). None of that is fixed by “an APK installer” in the long term — that app is only working around a permission or a broken file association.
+
+**Before opening the APK**
+
+1. Confirm the saved file name ends in **`.apk`** (not `.bin`, `.zip`, or “Document”). If it does not, re-download from a link that serves the file as `Something.apk`, or rename to `.apk` after download if you are sure the file is intact.
+2. On the phone: **Settings → Apps → Special app access** (or **Security**) → **Install unknown apps** (or **Install other apps**) → find the app they used to **download or store** the file (e.g. Chrome, Files, WhatsApp, Drive) → **Allow**.
+
+**If tapping the APK does nothing or only offers “Open with…”**
+
+- Open **Files** / **My Files**, browse to **Downloads**, tap the APK there. Samsung and Pixel usually install fine from here.
+- On **Xiaomi / Redmi / POCO (MIUI/HyperOS)**: allow the **browser or File manager** you used; some builds are strict until that toggle is on.
+- On **Huawei** (without Google): sideloading is more restricted; prefer **internal distribution** (below) or Huawei’s enterprise channels.
+
+**Play Protect**
+
+If Google shows **“Blocked by Play Protect”**, use **“Install anyway”** only if everyone trusts this build, or switch to an **internal testing** track so installs go through Play (see below).
+
+**Better options for a whole team (recommended)**
+
+- **Google Play — Internal testing**: upload an **AAB**, add testers by email; they install from Play Store (no “unknown sources” maze, fewer OEM quirks).
+- **Firebase App Distribution**: upload builds; testers get an email link with a guided install.
+
+Bump **`versionCode`** in `android/app/build.gradle` for every new APK you ship so Android does not treat updates as a downgrade.
+
 ## Features
 
 - **Dashboard** — today's job stats, recent jobs

@@ -22,13 +22,31 @@ export function Login({ onLogin }: Props) {
     }
 
     setLoading(true);
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-
-    if (authError) {
-      setError(authError.message);
-    } else {
-      onLogin();
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError) {
+        const am = authError.message ?? '';
+        if (/failed to fetch|networkerror|network request failed|load failed/i.test(am)) {
+          setError(
+            'Cannot reach the sign-in server. Check your connection and that this build has the correct Supabase URL. On Android, try fully closing the app or clearing app data if sign-in used to work.',
+          );
+        } else {
+          setError(am);
+        }
+      } else {
+        onLogin();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/failed to fetch|networkerror|network request failed|load failed/i.test(msg)) {
+        setError(
+          'Cannot reach the sign-in server. Check Wi‑Fi or mobile data, confirm your Supabase URL is correct in the build, and try again. If this is the Android app after an update, fully close the app and reopen — or clear the app\'s storage once if the problem persists.',
+        );
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 

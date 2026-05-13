@@ -3,6 +3,11 @@ import { supabase, isConfigured } from '../lib/supabase';
 import { db, localSaveJob, enqueue } from '../lib/db';
 import type { Job, ChecklistItem, GpsLogEntry } from '../types';
 
+/** Remote sync: all jobs (admin), assigned only (technician), or paused until session is known (`null`). */
+export type UseJobsOptions = {
+  serverAssignee?: string | null;
+};
+
 // ─── Seed data (demo / first-run) — empty, no placeholder jobs ──
 const SEED_JOBS: Job[] = [];
 
@@ -49,9 +54,12 @@ function mapRow(r: any): Job {
 }
 
 // ─── Hook ─────────────────────────────────────────────────────
-export function useJobs() {
+export function useJobs(opts?: UseJobsOptions) {
+  const serverAssignee = opts?.serverAssignee;
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  /** True while we are waiting for the first successful remote list (empty local cache, online). */
+  const [awaitingRemote, setAwaitingRemote] = useState(false);
 
   // Load from IndexedDB immediately (works offline)
   const loadLocal = useCallback(async () => {
@@ -59,28 +67,63 @@ export function useJobs() {
     const local = await db.jobs.orderBy('id').reverse().toArray();
     setJobs(local);
     setLoading(false);
-  }, []);
+    const needRemoteBootstrap =
+      isConfigured &&
+      navigator.onLine &&
+      local.length === 0 &&
+      serverAssignee !== null;
+    setAwaitingRemote(needRemoteBootstrap);
+  }, [serverAssignee]);
 
-  // Pull latest from Supabase in background (when online)
+  // Pull latest from Supabase in background (when online).
+  // Omit job_gps_log from the embedded select — it can be huge; hydrate in JobModal when the GPS tab opens.
   const syncFromServer = useCallback(async () => {
-    if (!isConfigured || !navigator.onLine) return;
+    if (!isConfigured || !navigator.onLine) {
+      setAwaitingRemote(false);
+      return;
+    }
+    if (serverAssignee === null) {
+      setAwaitingRemote(false);
+      return;
+    }
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .from('jobs')
-        .select('*, job_checklist(*), job_gps_log(*), job_photos(*), job_signatures(*)')
+        .select('*, job_checklist(*), job_photos(*), job_signatures(*)')
         .order('created_at', { ascending: false });
-      if (error || !data) return;
+      if (serverAssignee) {
+        q = q.contains('technician_names', [serverAssignee]);
+      }
+      const { data, error } = await q;
+      if (error || !data) {
+        setAwaitingRemote(false);
+        return;
+      }
 
       const mapped = data.map(mapRow);
-      await db.jobs.bulkPut(mapped);
-      setJobs(mapped);
+      const prevRows = await db.jobs.bulkGet(mapped.map(m => m.id));
+      const prevById = new Map(prevRows.filter(Boolean).map(p => [p!.id, p!]));
+      const merged = mapped.map(m => {
+        const prev = prevById.get(m.id);
+        if (m.gpsLog.length > 0) return m;
+        if (prev?.gpsLog?.length) return { ...m, gpsLog: prev.gpsLog };
+        return m;
+      });
+      await db.jobs.bulkPut(merged);
+      setJobs(merged);
     } catch {
       // network error — stay with local data
     }
+    setAwaitingRemote(false);
+  }, [serverAssignee]);
+
+  const hydrateJobGps = useCallback(async (jobId: string, entries: GpsLogEntry[]) => {
+    await db.jobs.update(jobId, { gpsLog: entries });
+    setJobs(prev => prev.map(j => (j.id === jobId ? { ...j, gpsLog: entries } : j)));
   }, []);
 
   useEffect(() => {
-    loadLocal().then(syncFromServer);
+    void loadLocal().then(syncFromServer);
   }, [loadLocal, syncFromServer]);
 
   // ─── Add job ───────────────────────────────────────────────
@@ -164,5 +207,12 @@ export function useJobs() {
     }
   }, []);
 
-  return { jobs, loading, addJob, updateJob, refetch: loadLocal };
+  return {
+    jobs,
+    loading: loading || awaitingRemote,
+    addJob,
+    updateJob,
+    hydrateJobGps,
+    refetch: loadLocal,
+  };
 }

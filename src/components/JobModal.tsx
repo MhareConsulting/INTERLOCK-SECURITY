@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { Job, JobStatus, Technician } from '../types';
+import type { Job, JobStatus, Technician, GpsLogEntry } from '../types';
+import { supabase, isConfigured } from '../lib/supabase';
 import { priColor, initials, techColor } from './StatusBadge';
 
 interface Props {
@@ -7,14 +8,17 @@ interface Props {
   technicians: Technician[];
   onClose: () => void;
   onSave: (job: Job) => void;
+  /** Persist GPS log into the shared jobs store after lazy load (does not push to server). */
+  onGpsHydrated?: (jobId: string, entries: GpsLogEntry[]) => void;
   toast: (msg: string) => void;
 }
 
 type TabName = 'details' | 'gps' | 'photos' | 'signature';
 
-export function JobModal({ job: initialJob, technicians, onClose, onSave, toast }: Props) {
+export function JobModal({ job: initialJob, technicians, onClose, onSave, onGpsHydrated, toast }: Props) {
   const [job, setJob] = useState<Job | null>(null);
   const [tab, setTab] = useState<TabName>('details');
+  const gpsHydratedForJob = useRef<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const sigRef = useRef<HTMLCanvasElement>(null);
   const sigDrawing = useRef(false);
@@ -25,8 +29,45 @@ export function JobModal({ job: initialJob, technicians, onClose, onSave, toast 
     if (initialJob) {
       setJob({ ...initialJob, checklist: initialJob.checklist.map(c => ({ ...c })) });
       setTab('details');
+      gpsHydratedForJob.current = null;
     }
   }, [initialJob]);
+
+  // Lazy-load job GPS history (excluded from the bulk jobs query for performance).
+  useEffect(() => {
+    if (tab !== 'gps' || !job || !isConfigured || !navigator.onLine) return;
+    if (job.gpsLog.length > 0) return;
+    if (gpsHydratedForJob.current === job.id) return;
+
+    let cancelled = false;
+    const jobId = job.id;
+
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('job_gps_log')
+          .select('id, lat, lng, logged_at')
+          .eq('job_id', jobId)
+          .order('logged_at', { ascending: false })
+          .limit(400);
+        if (cancelled || error || !data) return;
+        const entries: GpsLogEntry[] = data.map((g: { id: string; lat: number; lng: number; logged_at: string }) => ({
+          id: g.id,
+          time: g.logged_at,
+          loc: `${g.lat.toFixed(4)}, ${g.lng.toFixed(4)}`,
+        }));
+        gpsHydratedForJob.current = jobId;
+        setJob(prev => (prev && prev.id === jobId ? { ...prev, gpsLog: entries } : prev));
+        onGpsHydrated?.(jobId, entries);
+      } catch {
+        gpsHydratedForJob.current = jobId;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, job?.id, job?.gpsLog.length, onGpsHydrated]);
 
   const initSig = useCallback(() => {
     const canvas = sigRef.current;

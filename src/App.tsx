@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 import { supabase, isConfigured } from './lib/supabase';
 import { useJobs } from './hooks/useJobs';
 import { useTechnicians } from './hooks/useTechnicians';
@@ -42,8 +44,66 @@ export default function App() {
   const [showAddTech, setShowAddTech] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
 
+  const nativeBackState = useRef({
+    authed,
+    showAddUser,
+    showAddTech,
+    showAddJob,
+    selectedJob: null as Job | null,
+  });
+
+  useEffect(() => {
+    nativeBackState.current = {
+      authed,
+      showAddUser,
+      showAddTech,
+      showAddJob,
+      selectedJob,
+    };
+  }, [authed, showAddUser, showAddTech, showAddJob, selectedJob]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let handle: { remove: () => Promise<void> } | undefined;
+    void CapApp.addListener('backButton', () => {
+      const s = nativeBackState.current;
+      if (!s.authed) {
+        void CapApp.exitApp();
+        return;
+      }
+      if (s.showAddUser) {
+        setShowAddUser(false);
+        return;
+      }
+      if (s.showAddTech) {
+        setShowAddTech(false);
+        return;
+      }
+      if (s.showAddJob) {
+        setShowAddJob(false);
+        return;
+      }
+      if (s.selectedJob) {
+        setSelectedJob(null);
+        return;
+      }
+      void CapApp.exitApp();
+    }).then((h) => {
+      handle = h;
+    });
+    return () => {
+      void handle?.remove();
+    };
+  }, []);
+
   const toast = useToast();
-  const { jobs, addJob, updateJob } = useJobs();
+
+  const serverAssignee =
+    !isConfigured ? undefined
+      : userRole === 'technician' ? (currentTechName || null)
+        : undefined;
+
+  const { jobs, addJob, updateJob, hydrateJobGps, loading: jobsLoading } = useJobs({ serverAssignee });
   const { technicians, addTechnician, updateTechnician, deleteTechnician, updateGps } = useTechnicians();
   const { isOnline, pendingCount, syncStatus } = useOnlineStatus();
 
@@ -75,7 +135,6 @@ export default function App() {
       if (session) applySession(session);
     });
     return () => listener.subscription.unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleRefreshGPS = () => {
@@ -200,7 +259,14 @@ export default function App() {
       </nav>
 
       <main className="content">
-        {panel === 'dashboard' && userRole === 'admin' && (
+        {jobsLoading && jobs.length === 0 && (
+          <div style={{
+            padding: '2rem 1rem', textAlign: 'center', color: 'var(--muted)', fontSize: 14,
+          }}>
+            Loading jobs…
+          </div>
+        )}
+        {!(jobsLoading && jobs.length === 0) && panel === 'dashboard' && userRole === 'admin' && (
           <Dashboard
             jobs={visibleJobs}
             technicians={technicians}
@@ -208,7 +274,7 @@ export default function App() {
             onViewAll={() => setPanel('jobs')}
           />
         )}
-        {panel === 'jobs' && (
+        {!(jobsLoading && jobs.length === 0) && panel === 'jobs' && (
           <Jobs
             jobs={visibleJobs}
             technicians={technicians}
@@ -216,7 +282,7 @@ export default function App() {
             onNewJob={userRole === 'admin' ? () => setShowAddJob(true) : null}
           />
         )}
-        {panel === 'technicians' && userRole === 'admin' && (
+        {!(jobsLoading && jobs.length === 0) && panel === 'technicians' && userRole === 'admin' && (
           <Technicians
             technicians={technicians}
             jobs={visibleJobs}
@@ -227,21 +293,21 @@ export default function App() {
             toast={toast}
           />
         )}
-        {panel === 'gps' && userRole === 'admin' && (
+        {!(jobsLoading && jobs.length === 0) && panel === 'gps' && userRole === 'admin' && (
           <GPSTracking
             technicians={technicians}
             jobs={visibleJobs}
             onRefresh={handleRefreshGPS}
           />
         )}
-        {panel === 'jobcards' && (
+        {!(jobsLoading && jobs.length === 0) && panel === 'jobcards' && (
           <JobCards
             jobs={visibleJobs}
             technicians={technicians}
             onJobClick={setSelectedJob}
           />
         )}
-        {panel === 'reports' && userRole === 'admin' && (
+        {!(jobsLoading && jobs.length === 0) && panel === 'reports' && userRole === 'admin' && (
           <Reports jobs={visibleJobs} technicians={technicians} />
         )}
       </main>
@@ -255,6 +321,7 @@ export default function App() {
             updateJob(updated);
             toast('Job card saved');
           }}
+          onGpsHydrated={hydrateJobGps}
           toast={toast}
         />
       )}

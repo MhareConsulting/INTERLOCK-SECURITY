@@ -3,9 +3,13 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  base: './',
   plugins: [
     react(),
     VitePWA({
+      // Do not inject registerSW.js into HTML — we register manually in main.tsx so
+      // Capacitor Android can skip the service worker (SW + WebView often breaks Supabase fetch).
+      injectRegister: false,
       registerType: 'autoUpdate',
       // Service worker is active immediately (no waiting)
       workbox: {
@@ -46,7 +50,7 @@ export default defineConfig({
         background_color: '#14171c',
         display: 'standalone',
         orientation: 'portrait-primary',
-        start_url: '/',
+        start_url: './',
         icons: [
           { src: '/shield.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
         ],
