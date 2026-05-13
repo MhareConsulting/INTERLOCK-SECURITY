@@ -35,6 +35,8 @@ The app runs in demo mode with seed data. No Supabase needed to explore the UI.
    ```
 5. Restart the dev server — data now persists in PostgreSQL
 
+**Android / Capacitor login issues:** If email/password sign-in fails with “cannot reach server” but the URL is correct in `dist`, set `auth.detectSessionInUrl: false` for native (already done in `src/lib/supabase.ts`). If it still fails, use the **legacy `anon` `public` JWT** from Supabase **Settings → API** as `VITE_SUPABASE_ANON_KEY` (starts with `eyJ…`) instead of `sb_publishable_…`, then rebuild the APK.
+
 ## Deploy to Vercel (free hosting)
 
 1. Push this folder to a GitHub repository

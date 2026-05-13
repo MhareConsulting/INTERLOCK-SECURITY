@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -10,9 +11,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+// Capacitor WebView: URL-based session detection breaks Auth init / requests for many apps.
+const clientOptions = Capacitor.isNativePlatform()
+  ? { auth: { detectSessionInUrl: false } }
+  : {};
+
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder'
+  supabaseAnonKey || 'placeholder',
+  clientOptions,
 );
 
 export const isConfigured = Boolean(supabaseUrl && supabaseAnonKey);
